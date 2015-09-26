@@ -149,7 +149,9 @@ void matvec(Vector<restype>& result, DIA<mattype>& mat, Vector<vectype>& vec) {
 		for (int i(0); i < mat.dim(); ++i) {
 			resval = 0;
 			for (int j(0); j < mat.numDiags(); ++j) {
-				resval += static_cast<restype>((*mat._data)[mat.dim() * j + i]) * static_cast<restype>(vec[i + mat.offset()[j]]);
+				if ((i + mat.offset()[j]) >= 0 && (i + mat.offset()[j]) < vec._dim){
+					resval += static_cast<restype>((*mat._data)[mat.dim() * j + i]) * static_cast<restype>(vec[i + mat.offset()[j]]);
+				}
 			}
 			result[i] = resval;
 		}
@@ -168,9 +170,10 @@ void defect(Vector<datatype>& r, DIA<datatype>& mat, Vector<datatype>& rhs, Vect
 		r = rhs;	// da dies hier gesetzt wird, kann man innerhalb der Schleifen "-=" nutzen
 		for (int i(0); i < mat.dim(); ++i) {
 			for (int j(0); j < mat.numDiags(); ++j) {
-				r[i] -= (*mat._data)[mat.dim() * j + i] * vec[i + mat.offset()[j]];
+				if ((i + mat.offset()[j]) >= 0 && (i + mat.offset()[j]) < vec._dim){
+					r[i] -= (*mat._data)[mat.dim() * j + i] * vec[i + mat.offset()[j]];
+				}
 			}
-
 		}
 	}
 
