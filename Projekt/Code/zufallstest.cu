@@ -25,12 +25,12 @@ void generatetest(int dim, int ndiags, Vector<int>& offset)
     Vector<type> res(dim) ;
     Vector<type> data (dim*ndiags);
 	//setze x Daten
-    for (int i=0; i<= dim; ++i){
+    for (int i=0; i< dim; ++i){
 		srand (time(NULL));
         x[i]=(static_cast <type> ((rand()) / static_cast <type> (RAND_MAX))*200 - 100);
     }
     //setze Matrix Daten
-    for (int i=0; i<= ndiags; ++i){
+    for (int i=0; i< ndiags; ++i){
         if(offset[i]<=0){
             for (int j=-offset[i]; j< dim; ++j){
 				srand (time(NULL));
