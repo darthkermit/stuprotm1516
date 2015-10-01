@@ -38,7 +38,7 @@ void generatetest(int dim, int ndiags, Vector<int>& offset)
             }
         }else
         {
-            for (int j=0; j< dim-offset[i]; ++i){
+            for (int j=0; j< dim-offset[i]; ++j){
 				srand (time(NULL));
                 data[i*dim+j]=((static_cast <type> (rand()) / static_cast <type> (RAND_MAX))*200 - 100);
             }
