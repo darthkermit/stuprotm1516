@@ -27,6 +27,7 @@ void generatetest(int dim, int ndiags, Vector<int>& offset)
     srand (time(NULL));
 	//setze x Daten
     for (int i=0; i< dim; ++i){
+
 		//srand (time(NULL));
         x[i]=(static_cast <type> ((rand()) / static_cast <type> (RAND_MAX))*200 - 100);
     }
