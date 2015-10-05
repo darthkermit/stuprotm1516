@@ -25,7 +25,7 @@ __global__ void spmvkernel2(datatype* res, datatype* matval, int* matoff, dataty
 	}
 	__syncthreads();
 	if (idx + matoff[threadIdx.x] >= 0 && idx + matoff[threadIdx.x] < n){
-		atomicAdd(&res[idx], matval[idx + threadIdx.x*n] * rhs[idx + matoff[threadIdx.x]]);
+		atomicAdd(&res[idx], matval[idx + threadIdx.x*n] * rhs[idx + matoff[threadIdx.x]]);      	
 	}
 }
 
@@ -34,13 +34,15 @@ template <typename datatype>
 __global__ void spmvkernel(datatype* res, datatype* matval, int* matoff, datatype* rhs, int ndiags, int n)
 {
 	int idx = blockIdx.x*blockDim.x + threadIdx.x;
+	int colind;
 	if (idx < n){
 		res[idx] = 0;
 		for (int i = 0; i < ndiags; i++)
 		{
-			//if (idx + matoff[i] >= 0 && idx + matoff[i] < n){
-				res[idx] += matval[idx + i*n] * rhs[idx + matoff[i]];
-			//}
+			colind = idx + matoff[i];
+			if ( colind >= 0 && colind < n){
+				res[idx] += matval[idx + i*n] * rhs[colind];
+			}
 		}
 	}
 }
@@ -50,13 +52,15 @@ template <typename datatype>
 __global__ void defectkernel(datatype* res, datatype* matval, int* matoff,datatype* vec, datatype* rhs, int ndiags, int n)
 {
 	int idx = blockIdx.x*blockDim.x + threadIdx.x;
+	int colind;
 	if (idx < n){
 		res[idx] = vec[idx];
 		for (int i = 0; i < ndiags; i++)
 		{
-			//if (idx + matoff[i] >= 0 && idx + matoff[i] < n){
-				res[idx] -= matval[idx + i*n] * rhs[idx + matoff[i]];
-			//}
+			colind = idx + matoff[i];
+			if (colind >= 0 && colind < n){
+				res[idx] -= matval[idx + i*n] * rhs[colind];
+			}
 		}
 	}
 }
@@ -66,10 +70,13 @@ __global__ void defectkernel(datatype* res, datatype* matval, int* matoff,dataty
 // Dimension der Matrix ist dabei auf 65535*512 begrenzt (max Blocks per Dimension * max Threads per Blocks)
 template <typename datatype>
 void spmv(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& rhs){
+	cudaDeviceProp devProp;
+	cudaGetDeviceProperties(&devProp, 0);
+	int maxthread = devProp.maxThreadsPerBlock;
 	int dim = mat.dim();
 	int *d_matoff;
 	datatype *d_res;
-	datatype *d_matval;
+	datatype *d_matval;	
 	datatype *d_rhs;
 	datatype *h_solution = new datatype[dim];
 	if (res._dim != mat._dim || mat._dim != rhs._dim)
@@ -120,9 +127,9 @@ void spmv(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& rhs){
 			cout << "failed to copy" << endl;
 		}
 		//Kernel-Launch
-		spmvkernel<<<(dim/512)+1, 512>>>(d_res, d_matval, d_matoff, d_rhs, mat._numDiags, dim);
+		spmvkernel<<<(dim/maxthread)+1, maxthread>>>(d_res, d_matval, d_matoff, d_rhs, mat._numDiags, dim);
 
-
+		
 		if (cudaSuccess != cudaGetLastError())
 		{
 			cout << "kernel launch failed" << endl;
@@ -145,7 +152,7 @@ void spmv(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& rhs){
 // Sparse Matrix Vektor Multiplikation
 // Bsp: spmv(r, mat, rhs);  brechnet r=mat*rhs
 // Dimension der Matrix ist dabei auf 65535 begrenzt (max Blocks per Dimension)
-// kann nur (unsigned) int, float, aber KEIN double !!!!
+// kann nur (unsigned) int, float, aber KEIN double !!!! 
 template <typename datatype>
 void spmv2(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& rhs){
 	int dim = mat.dim();
@@ -228,6 +235,9 @@ template <typename datatype>
 void gpudefect(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& vec, Vector<datatype>& rhs){
 	int dim = mat.dim();
 	int *d_matoff;
+	cudaDeviceProp devProp;
+	cudaGetDeviceProperties(&devProp, 0);
+	int maxthread = devProp.maxThreadsPerBlock;
 	datatype *d_res;
 	datatype *d_matval;
 	datatype *d_rhs;
@@ -253,7 +263,7 @@ void gpudefect(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& vec,
 		{
 			cout << "allocate error" << endl;
 		}
-
+		
 		if (cudaSuccess != cudaMalloc(&d_vec, sizeof(datatype)*dim))
 		{
 			cout << "allocate error" << endl;
@@ -283,13 +293,13 @@ void gpudefect(Vector<datatype>& res, DIA<datatype>& mat, Vector<datatype>& vec,
 		{
 			cout << "failed to copy" << endl;
 		}
-
+		
 		if (cudaSuccess != cudaMemcpy(d_vec, vec._data, sizeof(datatype)*dim, cudaMemcpyHostToDevice))
 		{
 			cout << "failed to copy" << endl;
 		}
 		//Kernel-Launch
-		defectkernel << <(dim / 512) + 1, 512 >> >(d_res, d_matval, d_matoff, d_vec, d_rhs, mat._numDiags, dim);
+		defectkernel << <(dim / maxthread) + 1, maxthread >> >(d_res, d_matval, d_matoff, d_vec, d_rhs, mat._numDiags, dim);
 
 
 		if (cudaSuccess != cudaGetLastError())

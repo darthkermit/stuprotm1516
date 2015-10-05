@@ -1,4 +1,4 @@
-//=============================================================================================//
+﻿//=============================================================================================//
 //                                      DIA-Matrix Klasse                                      //
 //=============================================================================================//
 // enthaelt: (int)        _dim        Matrixdimension (quadratisch)                            //
@@ -154,6 +154,34 @@ void matvec(Vector<restype>& result, DIA<mattype>& mat, Vector<vectype>& vec) {
 				}
 			}
 			result[i] = resval;
+		}
+	}
+}
+
+// Matrix mal Vektor: Alternativversion. Nur noch numDiags() if- Abfragen (und innere for-Schleife grundsätzlich vektorisierbar). 
+// Bsp: matvec(result, mat, vec);
+template <typename restype, typename mattype, typename vectype>
+void matvec2(Vector<restype>& result, DIA<mattype>& mat, Vector<vectype>& vec) {
+	int start, end;
+	if (result._dim != mat._dim || mat._dim != vec._dim) {
+		throw invalid_argument(" -Achtung! Dimensionsfehler! (matvec)- ");
+	}
+	else {
+		for (int i(0); i < result.dim(); ++i){
+			result[i] = 0;
+		}
+		for (int j(0); j < mat.numDiags(); ++j) {
+			if (mat.offset()[j] <= 0){
+				start = -mat.offset()[j];
+				end = mat.dim();
+			}
+			else{
+				start = 0;
+				end = mat.dim() - mat.offset()[j];
+			}
+			for (int i(start); i < end; ++i) {
+				result[i] += static_cast<restype>((*mat._data)[mat.dim() * j + i]) * static_cast<restype>(vec[i + mat.offset()[j]]);
+			}
 		}
 	}
 }
