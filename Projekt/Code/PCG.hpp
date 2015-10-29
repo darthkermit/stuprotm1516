@@ -67,8 +67,57 @@ int CG(Vector<restype>& x, DIA<mattype>& A, Vector<vectype>& b) {
 
 template <typename restype, typename mattype, typename vectype>
 int PCG_Jacobi(Vector<restype>& x, DIA<mattype>& A, Vector<vectype>& b) {
-	// TODO
+	Vector<restype> r(b.dim());				// Definiere Residuumsvektor
+	defekt(r, A, b, x);						// Berechne Residuum
+
+	Vector<restype> h(A.dim());		
+	Vector<restype> diag(A.dim());
+	maindiag(diag,A);						//diag ist jetzt Hauptdiagonalvektor
+
+//***************	kann noch in Vector.hpp	***************
+	for (int j=0; j<A.dim(); j++)	
+	{
+		h[j]=static_cast<restype>(r[j]/diag[j]);	// h=D^-1 * r   mit D=diag(A); also D^-1 Vorkonditionierungsmatrix
+	}
+//*********************************************************
+
+	Vector<restype> d(h);					// d_0 = h_0
+	Vector<restype> z(b.dim());					
+	restype rh_old(0);
+	restype rh_new(1);
+	restype dz(1);
+	Vector<restype> x_old(b.dim());
+	Vector<restype> r_old(b.dim());
+
+	double TOL(0.0000001);
+
+	sp(rh_old, r, h);						// rh_old= r^T h
+
 	int k(0);
-	k = CG(x, A, b);
+	for (; k < b.dim() && norm(r) >= TOL; ++k) 
+	{
+		matvec(z, A, d);					// z=A*d_k
+		sp(dz, d, z);						// dz= d^T z
+
+		x_old = x;
+		x = d;
+		x.skalarmult(rh_old / dz);			
+		x.vecadd(x_old);					// x_{k+1}=x_k + d*{rh_old/dz}
+
+		r_old = r;
+		r = z;
+		r.skalarmult(-(rh_old / dz));
+		r.vecadd(r_old);					// r_{k+1}=r_k - z*{rh_old/dz} 
+
+		for (int j=0; j<A.dim(); j++) {
+			h[j]=r[j]/diag[j];				// h_{k+1}=D^-1 * r_{k+1}
+		}
+
+		sp(rh_new, r, h);						
+		d.skalarmult(rh_new / rh_old);			
+		d.vecadd(h);						// d_{k+1}=h_{k+1} + {rh_new/rh_old} d_k
+
+		rh_old=rh_new;
+	}
 	return k;
 }
